@@ -1,13 +1,10 @@
 import { Router } from "express";
-import { scanPharmacy } from '../controllers/ocr.controller.js'
+import { extractPharmacy, savePharmacy } from '../controllers/ocr.controller.js';
 import { auth } from "../middleware/auth.js";
 
+const router = Router();
 
-const router = Router()
+router.post('/extract', auth, extractPharmacy);
+router.post('/save',    auth, savePharmacy);
 
-
-router.post('/scan', auth, scanPharmacy)
-
-
-
-export default router
+export default router;
