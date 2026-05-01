@@ -6,6 +6,8 @@ import { formatDate } from "../utlis/misc.js";
 import fs from 'fs'
 import csv from 'csv-parser'
 import { application } from "express";
+import { AsyncLocalStorage } from "async_hooks";
+import { json } from "stream/consumers";
 
 
 export const getYrQt = asyncHandler(async (req, res) => {
@@ -324,8 +326,156 @@ export const getFinal = asyncHandler(async (req, res) => {
 });
 
 
+export const getIncentiveMahaMahuratEmpWise = asyncHandler(async (req, res) => {
+    const { UserId } = req?.user
+    const { Quarter } = req?.query
 
 
+    const query = `
+        SELECT 
+        a.SlDivCd,
+        a.Quarter,
+        a.MonthId,
+        a.MgCd,
+        b.MgName,
+        b.Strength,
+        c.EmpNo,
+        c.EmpName,
+        c.JoinDt,
+        round(a.AchievedTill9th) as AchievedTill9th,
+        round(a.TotalAchived) as TotalAchived,
+        round(a.Target) as Target,
+        if(a.Target> 0, round(a.AchievedTill9th*100/a.Target,2),0) as AchivementPercent,
+        if(a.Target> 0 and a.AchievedTill9th>=a.Target,1,0) as Eligible,
+        if(a.Target> 0 and a.AchievedTill9th>=a.Target,round((a.AchievedTill9th*3/100)/b.Strength),0 ) as Incentive
+        FROM incentive.q_mahamahurat as a
+        left join incentive.v_q_MgCdStrength as b on a.SlDivCd=b.SlDivCd and a.MgCd=b.MgCd
+        left join incentive.v_q_MgCd_MrDetails as c on a.SlDivCd=c.SlDivCd and a.MgCd=c.MgCd
+        where a.Quarter='${Quarter}' and  c.EmpNo='${UserId}'
+
+    `
+
+
+    const [result] = await pool.execute(query);
+
+    res.status(200).json(new ApiResponse(200, result, 'Data Fetched..'))
+
+
+})
+
+
+export const getIncentivePlanOneEmpWise = asyncHandler(async (req, res) => {
+    const { UserId } = req.user
+    const { Quarter } = req?.query
+
+
+    const query = `
+    select 
+        a.SlDivCd,
+        a.Quarter,
+        a.MgCd,
+        b.MgName,
+        b.Strength,
+        c.EmpNo,
+        c.EmpName,
+        c.JoinDt,
+        round(a.LYNrv) as LYNrv,
+        round(a.LYTarget) as LYTarget,
+        if(a.LYTarget>0,round((a.LYNrv/a.LYTarget)*100,2),0) as LYTargetPercent,
+        round(a.CYNrv) as CYNrv,
+        round(a.CYTarget) as CYTarget,
+        if(a.CYTarget>0,round((a.CYNrv/a.CYTarget)*100,2),0) as CYTargetPercent,
+        round(if(a.LYNrv>=a.LYTarget,a.LYNrv*0.90,a.LYNrv)) as BaseValue,
+        if(a.CYNrv>=if(a.LYNrv>=a.LYTarget,a.LYNrv*0.90,a.LYNrv),1,0) as Eligible,
+        CASE
+            When a.SlDivCd='NAARI' 
+            AND if(a.LYNrv>=a.LYTarget,a.LYNrv*0.90,a.LYNrv)>0 
+            AND a.CYNrv>=if(a.LYNrv>=a.LYTarget,a.LYNrv*0.90,a.LYNrv) 
+            THEN round(if(a.LYNrv>=a.LYTarget,a.LYNrv*0.90,a.LYNrv)*1/100)
+            when a.SlDivCd<>'NAARI' 
+            AND if(a.LYNrv>=a.LYTarget,a.LYNrv*0.90,a.LYNrv)>0
+            AND a.CYNrv>=if(a.LYNrv>=a.LYTarget,a.LYNrv*0.90,a.LYNrv)
+            THEN round(if(a.LYNrv>=a.LYTarget,a.LYNrv*0.90,a.LYNrv)*0.5/100)
+            else 0
+        END AS Incentive
+        from (
+        select SlDivCd,Quarter,MgCd,
+        sum(LYNrv) as LYNrv,
+        sum(LYTarget) as LYTarget,
+        sum(CYNrv) as CYNrv,
+        sum(CYTarget) as CYTarget
+        FROM incentive.q_plan1 
+        where Quarter='${Quarter}'
+        and SlDivCd in ('BNEVA','FEMBN','NAARI','UNIFY')
+        GROUP BY SlDivCd,Quarter,MgCd) as a
+        left join incentive.v_q_MgCdStrength as b on a.SlDivCd=b.SlDivCd and a.MgCd=b.MgCd
+        left join incentive.v_q_MgCd_MrDetails as c on a.SlDivCd=c.SlDivCd and a.MgCd=c.MgCd
+        where c.EmpNo='${UserId}';
+    `
+
+    const [result] = await pool.execute(query);
+
+    res.status(200).json(new ApiResponse(200, result, "Plan one Incentive "))
+
+
+
+
+})
+
+
+export const getIncentivePlanTwoEmpWise = asyncHandler(async (req, res) => {
+
+    const { UserId } = req?.user
+    const { Quarter } = req?.query
+
+    const query = `
+        select 
+        a.SlDivCd,
+        a.Quarter,
+        a.MgCd,
+        b.MgName,
+        b.Strength,
+        c.EmpNo,
+        c.EmpName,
+        c.JoinDt,
+        round(a.LYNrv) as LYNrv,
+        round(a.LYTarget) as LYTarget,
+        if(a.LYTarget>0,round((a.LYNrv/a.LYTarget)*100,2),0) as LYTargetPercent,
+        round(a.CYNrv) as CYNrv,
+        round(a.CYTarget) as CYTarget,
+        if(a.CYTarget>0,round((a.CYNrv/a.CYTarget)*100,2),0) as CYTargetPercent,
+        round(if(a.LYNrv>=a.LYTarget,a.LYNrv*0.90,a.LYNrv)) as BaseValue,
+        if(a.CYNrv>=if(a.LYNrv>=a.LYTarget,a.LYNrv*0.90,a.LYNrv),1,0) as Eligible,
+        if(a.CYNrv>=if(a.LYNrv>=a.LYTarget,a.LYNrv*0.90,a.LYNrv),round(a.CYNrv-if(a.LYNrv>=a.LYTarget,a.LYNrv*0.90,a.LYNrv)),0) as IncrementValue,
+        case 
+        when a.CYNrv>=if(a.LYNrv>=a.LYTarget,a.LYNrv*0.90,a.LYNrv)
+        then round((a.CYNrv-if(a.LYNrv>=a.LYTarget,a.LYNrv*0.90,a.LYNrv))*0.10)
+        else 0
+        end as Incentive
+        from (
+        select SlDivCd,Quarter,MgCd,
+        sum(LYNrv) as LYNrv,
+        sum(LYTarget) as LYTarget,
+        sum(CYNrv) as CYNrv,
+        sum(CYTarget) as CYTarget
+        FROM incentive.q_plan1 
+        where Quarter='${Quarter}'
+        and SlDivCd in ('BNEVA','FEMBN','NAARI','UNIFY')
+        GROUP BY SlDivCd,Quarter,MgCd) as a
+        left join incentive.v_q_MgCdStrength as b on a.SlDivCd=b.SlDivCd and a.MgCd=b.MgCd
+        left join incentive.v_q_MgCd_MrDetails as c on a.SlDivCd=c.SlDivCd and a.MgCd=c.MgCd
+        where c.EmpNo = '${UserId}'
+    `
+
+    // console.log(query)
+
+    const [result] = await pool.execute(query)
+
+    console.log(result)
+    res.status(200).json(new ApiResponse(200,result,'Plan two data'))
+
+
+})
 
 
 

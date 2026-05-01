@@ -8,9 +8,12 @@ import {
     getYrQt,
     getPlans,
     getNrvRaw,
-    getIncentiveMahaMahurat, getIncentivePlanOne, getIncentivePlanTwo, 
+    getIncentiveMahaMahurat, getIncentivePlanOne, getIncentivePlanTwo,
     getIncentivePlanThree,
-    getIncentivePlanFour
+    getIncentivePlanFour,
+    getIncentiveMahaMahuratEmpWise,
+    getIncentivePlanOneEmpWise,
+    getIncentivePlanTwoEmpWise
 } from "../controllers/incentive.controller.js";
 
 const router = Router()
@@ -22,7 +25,14 @@ router.get('/getIncentiveMahaMahurat', auth, getIncentiveMahaMahurat)
 router.get('/getIncentivePlanOne', auth, getIncentivePlanOne)
 router.get('/getIncentivePlanTwo', auth, getIncentivePlanTwo)
 router.get('/getIncentivePlanthree', auth, getIncentivePlanThree)
-router.get('/getIncentivePlanFour',auth,getIncentivePlanFour)
+router.get('/getIncentivePlanFour', auth, getIncentivePlanFour)
+
+router.get('/getIncentiveMahaMahuratEmpWise', auth, getIncentiveMahaMahuratEmpWise)
+router.get('/getIncentivePlanOneEmpWise', auth, getIncentivePlanOneEmpWise)
+router.get('/getIncentivePlanTwoEmpWise',auth,getIncentivePlanTwoEmpWise)
+
+
+
 
 
 export default router
